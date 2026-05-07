@@ -1,76 +1,90 @@
 import { test, expect } from '@playwright/test';
+import { faker } from '@faker-js/faker';
 import { getBooks, getBookById, createBook, updateBook, deleteBook } from '../api/api.js';
 import { logResponse } from '../utils/logger.js';
 
 test.describe('Books API tests', () => {
+  
+  test('GET all books', async () => {
+    const response = await getBooks();
 
-test('GET all books', async () => {
-  const response = await getBooks();
-
-
-      logResponse(response);
-  expect(response.status).toBe(200);
-  expect(Array.isArray(response.data)).toBe(true);
-});
-
-test('GET book by valid ID', async () => {
-  const response = await getBookById(1);
-
-    //logResponse(response);
-  expect(response.status).toBe(200);
-  expect(response.data.id).toBe(1);
-});
-
-test('POST book with valid data', async () => {
-  const response = await createBook({
-    id: 101,
-    title: 'API Testing Book',
-    description: 'Book created with Axios by Amerko',
-    pageCount: 120,
-    excerpt: 'Test excerpt',
-    publishDate: '2026-04-27T23:00:00',
+    expect(response.status).toBe(200);
+    expect(Array.isArray(response.data)).toBe(true);
   });
 
-    logResponse(response);
-  expect(response.status).toBe(200);
-  expect(response.data.title).toBe('API Testing Book');
-  expect(response.data.pageCount).toBe(120);
-});
+  test('GET book by valid ID', async () => {
+    const response = await getBookById(1);
 
-test('PUT book update', async () => {
-  const response = await updateBook(17, {
-    id: 17,
-    title: 'Updated Book by Amerko',
-    description: 'Better version of yourself',
-    pageCount: 200,
-    excerpt: 'Updated excerpt',
-    publishDate: '2026-04-28T09:01:36Z'
+    expect(response.status).toBe(200);
+    expect(response.data.id).toBe(1);
   });
 
-    logResponse(response);
-  expect(response.status).toBe(200);
-  expect(response.data.title).toBe('Updated Book by Amerko');
-});
+  test('POST book with valid data', async ({}, testInfo) => {
+    const book = {
+      id: faker.number.int({ min: 500, max: 10000 }),
+      title: faker.lorem.words(3),
+      description: faker.lorem.sentence(),
+      pageCount: faker.number.int({ min: 50, max: 500 }),
+      excerpt: faker.lorem.paragraph(),
+      publishDate: new Date().toISOString(),
+    };
 
-test('DELETE book', async () => {
-  const response = await deleteBook(17);
+    const response = await createBook(book);
 
-    logResponse(response);
-  expect([200, 204]).toContain(response.status);
-});
+    logResponse(testInfo.title, response);
 
-test('BUG - book should not accept negative pageCount', async () => {
-  const response = await createBook({
-    id: Math.floor(Math.random() * 100000),
-    title: 'Invalid Book',
-    description: 'Test',
-    pageCount: -50, // cannot be negative
-    excerpt: 'Test excerpt',
-    publishDate: new Date().toISOString(),
+    expect(response.status).toBe(200);
+    expect(response.data.title).toBe(book.title);
+    expect(response.data.pageCount).toBe(book.pageCount);
   });
 
-  logResponse(response);
+  test('PUT book update', async ({}, testInfo) => {
+    const bookId = 17;
 
-  expect(response.status).toBe(400); 
-});
+    const updatedBook = {
+      id: bookId,
+      title: faker.lorem.words(2),
+      description: faker.lorem.sentence(),
+      pageCount: faker.number.int({ min: 100, max: 500 }),
+      excerpt: faker.lorem.paragraph(),
+      publishDate: new Date().toISOString(),
+    };
+
+    const response = await updateBook(bookId, updatedBook);
+
+    logResponse(testInfo.title, response);
+
+    expect(response.status).toBe(200);
+    expect(response.data.title).toBe(updatedBook.title);
+  });
+
+  test('DELETE book', async ({}, testInfo) => {
+    const bookId = 17;
+    const response = await deleteBook(bookId);
+
+    logResponse(testInfo.title, response);
+
+    expect([200, 204]).toContain(response.status);
+  });
+
+  test('BUG - book should not accept negative pageCount', async ({}, testInfo) => {
+    const invalidBook = {
+      id: faker.number.int({ min: 1, max: 100000 }),
+      title: faker.lorem.words(2),
+      description: faker.lorem.sentence(),
+      pageCount: -50,
+      excerpt: faker.lorem.paragraph(),
+      publishDate: new Date().toISOString(),
+    };
+
+    const response = await createBook(invalidBook);
+
+    logResponse(testInfo.title, response);
+
+    expect(response.status).toBe(400);
+  });
+
+  test.afterEach(async ({}, testInfo) => {
+    console.log(`Finished "${testInfo.title}" with status: ${testInfo.status}`);
+  });
 });
